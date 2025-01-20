@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Leaderboard } from "@/components/Leaderboard";
+import { BrowserAIModel } from "@/models/browser-ai";
+import { EvaluationMetrics } from "@/models/types";
+import { EvaluationLogsTable } from "@/components/EvaluationLogsTable";
 
 const Index = () => {
   const { toast } = useToast();
@@ -21,6 +24,7 @@ const Index = () => {
     memoryUsage: 0,
     evalTime: 0,
   });
+  const [outputView, setOutputView] = useState<'console' | 'logs'>('console');
 
   const handleModelSelect = (modelId: string) => {
     setSelectedModel(modelId);
@@ -37,7 +41,7 @@ const Index = () => {
     setLogs((prev) => [...prev, { message, type, timestamp }]);
   };
 
-  const startEvaluation = () => {
+  const startEvaluation = async () => {
     if (!selectedModel || !selectedDataset) {
       toast({
         title: "Error",
@@ -48,29 +52,37 @@ const Index = () => {
     }
 
     setIsRunning(true);
-    addLog("Starting evaluation...", "info");
-    
-    // Simulate evaluation progress
-    let progress = 0;
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      progress += 10;
-      const elapsedTime = (Date.now() - startTime) / 1000;
-      setMetrics({
-        latency: Math.random() * 100,
-        accuracy: Math.random(),
-        tokensProcessed: progress * 1000,
-        memoryUsage: Math.random() * 500 * 1024 * 1024,
-        evalTime: elapsedTime,
-      });
-      addLog(`Processing batch ${progress/10}/10...`, "info");
-      
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsRunning(false);
-        addLog("Evaluation complete!", "success");
+    // addLog("Starting evaluation...", "info");
+    console.log(selectedModel);
+    const model = new BrowserAIModel(
+      { model: selectedModel },
+      {
+        onProgress: (progress: number, metrics: EvaluationMetrics) => {
+          setMetrics(metrics);
+        },
+        onComplete: (metrics: EvaluationMetrics) => {
+          setIsRunning(false);
+        },
+        onLog: (message: string, type: "info" | "error" | "success") => {
+          addLog(message, type);
+        }
       }
-    }, 1000);
+    );
+
+    addLog("Starting evaluation...", "info");
+
+    try {
+      await model.evaluate(selectedDataset);
+    } catch (error) {
+      setIsRunning(false);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred during evaluation",
+        variant: "destructive",
+      });
+    } finally {
+      model.cleanup();
+    }
   };
 
   return (
@@ -114,7 +126,36 @@ const Index = () => {
               </div>
             </div>
 
-            <TerminalOutput logs={logs} />
+            <div className="mt-4 mb-2 flex justify-end space-x-2">
+              <Button
+                variant={outputView === 'console' ? 'default' : 'outline'}
+                onClick={() => setOutputView('console')}
+                size="sm"
+                className="text-terminal-accent"
+              >
+                Console View
+              </Button>
+              <Button
+                variant={outputView === 'logs' ? 'default' : 'outline'}
+                onClick={() => setOutputView('logs')}
+                size="sm"
+                className="text-terminal-accent"
+              >
+                Logs View
+              </Button>
+            </div>
+
+            {outputView === 'console' ? (
+              <TerminalOutput logs={logs} />
+            ) : (
+              <div className="bg-terminal-foreground rounded-lg p-4">
+                {metrics?.logs ? (
+                  <EvaluationLogsTable logs={metrics.logs} />
+                ) : (
+                  <p className="text-terminal-muted">No evaluation logs available. Run an evaluation to see results.</p>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

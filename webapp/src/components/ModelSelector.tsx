@@ -1,9 +1,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const models = [
-  { id: "llama-1b-onnx", name: "Llama 1B (ONNX)", size: "1B parameters" },
-  { id: "llama-1b-mlc", name: "Llama 1B (MLC)", size: "1B parameters" },
-  { id: "tiny-llama", name: "TinyLlama", size: "500M parameters" },
+  { id: "llama-3.2-1b-instruct", name: "Llama-3.2-1b-Instruct (MLC)", size: "1B parameters" },
+  { id: "smollm2-360m-instruct", name: "SmolLM2-360M-Instruct (MLC)", size: "360M parameters" },
 ];
 
 interface ModelSelectorProps {

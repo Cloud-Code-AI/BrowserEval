@@ -1,9 +1,62 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const datasets = [
-  { id: "squad", name: "SQuAD", description: "Question Answering Dataset" },
-  { id: "glue", name: "GLUE", description: "General Language Understanding" },
-  { id: "mmlu", name: "MMLU", description: "Massive Multitask Language Understanding" },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_mathematics.jsonl",
+    name: "MMLU - High School Mathematics",
+    description: "Mathematics Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_mathematics.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_physics.jsonl",
+    name: "MMLU - High School Physics",
+    description: "Physics Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_physics.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_biology.jsonl",
+    name: "MMLU - High School Biology",
+    description: "Biology Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_biology.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_chemistry.jsonl",
+    name: "MMLU - High School Chemistry",
+    description: "Chemistry Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_chemistry.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_computer_science.jsonl",
+    name: "MMLU - High School Computer Science",
+    description: "Computer Science Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_computer_science.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_psychology.jsonl",
+    name: "MMLU - High School Psychology",
+    description: "Psychology Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_psychology.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_us_history.jsonl",
+    name: "MMLU - High School US History",
+    description: "US History Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_us_history.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:mmlu_high_school_world_history.jsonl",
+    name: "MMLU - High School World History",
+    description: "World History Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_high_school_world_history.jsonl"
+  }
 ];
 
 interface DatasetSelectorProps {

@@ -18,7 +18,7 @@ export function MetricsDisplay({ metrics }: MetricsDisplayProps) {
       <Card className="bg-terminal-border p-4">
         <div className="text-terminal-muted text-sm">Latency</div>
         <div className="text-terminal-accent text-2xl font-bold">
-          {metrics.latency.toFixed(2)} ms/token
+          {metrics.latency.toFixed(2)} tokens/s
         </div>
       </Card>
       <Card className="bg-terminal-border p-4">
