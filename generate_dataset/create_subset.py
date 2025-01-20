@@ -1,6 +1,7 @@
 import random
 from datasets import load_dataset, Dataset
 import json
+from huggingface_hub import HfApi
 
 def create_dataset_subset(dataset_name: str, subset_name: str, num_samples: int = 250, seed: int = 42, repo_name: str = "smalleval/mmlu"):
     """
@@ -37,18 +38,21 @@ def create_dataset_subset(dataset_name: str, subset_name: str, num_samples: int 
     # Convert to list of dictionaries for JSONL format
     subset_data = [example for example in subset]
     
-    # Create repository name (we'll use one repository for all subsets)
-    # repo_name = "smalleval/mmlu"
-    
     # Create filename based on dataset and subset names
     filename = f"{dataset_name.split('/')[-1]}_{subset_name}.jsonl"
     
     try:
-        # Push to the Hub as a new file in the repository
-        subset.push_to_hub(
-            repo_name,
-            config_name=filename,  # This will create a new file in the repo
-            private=False,
+        # Write to JSONL file
+        with open('datasets/' + filename, 'w', encoding='utf-8') as f:
+            for item in subset_data:
+                f.write(json.dumps(item) + '\n')
+        
+        # Upload the JSONL file to the hub using the Hugging Face Hub API
+        api = HfApi()
+        api.upload_file(
+            path_or_fileobj='datasets/' + filename,
+            path_in_repo=filename,
+            repo_id=repo_name,
             commit_message=f"Add {filename} with {num_samples} samples"
         )
         print(f"Successfully pushed {filename} to: {repo_name}")
@@ -74,5 +78,5 @@ if __name__ == "__main__":
             subset_name=subset_name,
             num_samples=250,
             seed=42,
-            repo_name="smalleval/mmlu"
+            repo_name="smalleval/mmlu-nano"
         )
