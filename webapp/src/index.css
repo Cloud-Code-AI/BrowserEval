@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 230 35% 7%;
+    --foreground: 214 32% 91%;
+    --card: 230 35% 7%;
+    --card-foreground: 214 32% 91%;
+    --popover: 230 35% 7%;
+    --popover-foreground: 214 32% 91%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 199 100% 74%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 217 33% 44%;
+    --muted-foreground: 214 32% 91%;
+    --accent: 158 64% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 230 25% 31%;
+    --input: 230 25% 31%;
+    --ring: 158 64% 52%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-terminal-background text-terminal-foreground font-mono;
+  }
+}
+
+.terminal-cursor::after {
+  content: "_";
+  @apply animate-blink;
+}
