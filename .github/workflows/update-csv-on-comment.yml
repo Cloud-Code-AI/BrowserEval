@@ -13,139 +13,132 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: read
+      issues: write
+      statuses: write
 
     steps:
-      - name: Debug event information
-        run: |
-          echo "Comment body: ${{ github.event.comment.body }}"
-          echo "Comment author: ${{ github.event.comment.user.login }}"
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          node-version: '20'
+          python-version: '3.10'
 
-      - name: Parse issue and update CSV
-        id: update-csv
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            
-            // Get issue body
-            const issue = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-            
-            // Parse issue body
-            const issueBody = issue.data.body;
-            
-            // Helper function to extract value from markdown line
-            function extractValue(text, key) {
-              const regex = new RegExp(`\\*\\*${key}\\*\\*:\\s*([^\\n]+)`);
-              const match = text.match(regex);
-              return match ? match[1].trim() : '';
-            }
-            
-            // Extract all values
-            const dataset = extractValue(issueBody, 'Dataset');
-            const model = extractValue(issueBody, 'Model');
-            const accuracy = extractValue(issueBody, 'Accuracy').replace('%', '');
-            const avgLatency = extractValue(issueBody, 'Average Latency').replace('ms', '');
-            const tokensPerSecond = extractValue(issueBody, 'Tokens/Second');
-            const memoryUsage = extractValue(issueBody, 'Memory Usage').replace('MB', '');
-            const browser = extractValue(issueBody, 'Browser');
-            const os = extractValue(issueBody, 'OS');
-            const cpu = extractValue(issueBody, 'CPU');
-            const ram = extractValue(issueBody, 'RAM');
-            const gpu = extractValue(issueBody, 'GPU');
-            const timestamp = extractValue(issueBody, 'Timestamp');
-            
-            // Create CSV line
-            const newLine = [
-              dataset,
-              model,
-              'evaluation',
-              `${accuracy}%`,
-              '250', // Hardcoded as per example
-              `${avgLatency}ms`,
-              tokensPerSecond,
-              `${memoryUsage}MB`,
-              browser,
-              os,
-              cpu,
-              ram,
-              gpu,
-              timestamp
-            ].join(',');
-            
-            // Read existing CSV file
-            const csvPath = 'public/main.csv';
-            const existingContent = fs.readFileSync(csvPath, 'utf8');
-            const header = existingContent.split('\n')[0];
-            
-            // Combine existing content with new line
-            const newContent = [
-              header,
-              ...existingContent.split('\n').slice(1),
-              newLine
-            ].join('\n');
-            
-            // Create new branch
-            const branchName = `update-csv-${context.issue.number}`;
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/heads/${branchName}`,
-              sha: context.sha
-            });
-            
-            // Create or update file in the new branch
-            await github.rest.repos.createOrUpdateFileContents({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              path: csvPath,
-              message: `Update main.csv from issue #${context.issue.number}`,
-              content: Buffer.from(newContent).toString('base64'),
-              branch: branchName
-            });
-            
-            // Create PR
-            const pr = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Update main.csv from issue #${context.issue.number}`,
-              body: `This PR updates main.csv with data from issue #${context.issue.number}`,
-              head: branchName,
-              base: 'main'
-            });
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub
 
-      - name: Comment on issue
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `Created PR to update main.csv with the provided data.\nPR: #${pr.data.number}`
-            });
+      - name: Run Python script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          cat > update_csv.py << 'EOL'
+          import os
+          import csv
+          from github import Github
 
-      - name: Handle errors
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: 'Failed to create PR. Please check the action logs for details.'
-            }); 
+          def extract_value(text, key):
+              import re
+              pattern = f"\\*\\*{key}\\*\\*:\\s*([^\\n]+)"
+              match = re.search(pattern, text)
+              return match.group(1).strip() if match else ''
+
+          def main():
+              # Setup GitHub client
+              g = Github(os.environ['GITHUB_TOKEN'])
+              repo = g.get_repo(os.environ['REPO_NAME'])
+              issue_number = int(os.environ['ISSUE_NUMBER'])
+              issue = repo.get_issue(issue_number)
+
+              # Extract values from issue body
+              issue_body = issue.body
+              data = {
+                  'dataset': extract_value(issue_body, 'Dataset'),
+                  'model': extract_value(issue_body, 'Model'),
+                  'accuracy': extract_value(issue_body, 'Accuracy').replace('%', ''),
+                  'avg_latency': extract_value(issue_body, 'Average Latency').replace('ms', ''),
+                  'tokens_per_second': extract_value(issue_body, 'Tokens/Second'),
+                  'memory_usage': extract_value(issue_body, 'Memory Usage').replace('MB', ''),
+                  'browser': extract_value(issue_body, 'Browser'),
+                  'os': extract_value(issue_body, 'OS'),
+                  'cpu': extract_value(issue_body, 'CPU'),
+                  'ram': extract_value(issue_body, 'RAM'),
+                  'gpu': extract_value(issue_body, 'GPU'),
+                  'timestamp': extract_value(issue_body, 'Timestamp')
+              }
+
+              # Create new CSV line
+              new_line = [
+                  data['dataset'],
+                  data['model'],
+                  'evaluation',
+                  f"{data['accuracy']}%",
+                  '250',  # Hardcoded as per example
+                  f"{data['avg_latency']}ms",
+                  data['tokens_per_second'],
+                  f"{data['memory_usage']}MB",
+                  data['browser'],
+                  data['os'],
+                  data['cpu'],
+                  data['ram'],
+                  data['gpu'],
+                  data['timestamp']
+              ]
+
+              # Read and update CSV
+              csv_path = 'public/main.csv'
+              with open(csv_path, 'r') as f:
+                  content = f.readlines()
+                  header = content[0]
+                  existing_lines = content[1:]
+
+              # Add new line and write back
+              with open(csv_path, 'w') as f:
+                  f.write(header)
+                  f.writelines(existing_lines)
+                  f.write(','.join(new_line) + '\n')
+
+              # Create branch and PR
+              branch_name = f"update-csv-{issue_number}"
+              main_branch = repo.get_branch("main")
+              repo.create_git_ref(f"refs/heads/{branch_name}", main_branch.commit.sha)
+
+              # Commit changes
+              with open(csv_path, 'r') as f:
+                  content = f.read()
+              repo.update_file(
+                  csv_path,
+                  f"Update main.csv from issue #{issue_number}",
+                  content,
+                  repo.get_contents(csv_path).sha,
+                  branch=branch_name
+              )
+
+              # Create PR
+              pr = repo.create_pull(
+                  title=f"Update main.csv from issue #{issue_number}",
+                  body=f"This PR updates main.csv with data from issue #{issue_number}",
+                  head=branch_name,
+                  base="main"
+              )
+
+              # Comment on issue
+              issue.create_comment(f"Created PR to update main.csv with the provided data.\nPR: #{pr.number}")
+
+          if __name__ == "__main__":
+              try:
+                  main()
+              except Exception as e:
+                  # Get issue and comment error
+                  g = Github(os.environ['GITHUB_TOKEN'])
+                  repo = g.get_repo(os.environ['REPO_NAME'])
+                  issue = repo.get_issue(int(os.environ['ISSUE_NUMBER']))
+                  issue.create_comment(f"Failed to create PR. Error: {str(e)}")
+                  raise e
+          EOL
+
+          python update_csv.py 
