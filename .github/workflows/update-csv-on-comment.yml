@@ -1,0 +1,144 @@
+name: Update CSV on Issue Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  update-csv:
+    if: contains(github.event.comment.body, 'insert') && github.event.comment.author_association == 'COLLABORATOR'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Parse issue and update CSV
+        id: update-csv
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Get issue body
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            // Parse issue body
+            const issueBody = issue.data.body;
+            
+            // Helper function to extract value from markdown line
+            function extractValue(text, key) {
+              const regex = new RegExp(`\\*\\*${key}\\*\\*:\\s*([^\\n]+)`);
+              const match = text.match(regex);
+              return match ? match[1].trim() : '';
+            }
+            
+            // Extract all values
+            const dataset = extractValue(issueBody, 'Dataset');
+            const model = extractValue(issueBody, 'Model');
+            const accuracy = extractValue(issueBody, 'Accuracy').replace('%', '');
+            const avgLatency = extractValue(issueBody, 'Average Latency').replace('ms', '');
+            const tokensPerSecond = extractValue(issueBody, 'Tokens/Second');
+            const memoryUsage = extractValue(issueBody, 'Memory Usage').replace('MB', '');
+            const browser = extractValue(issueBody, 'Browser');
+            const os = extractValue(issueBody, 'OS');
+            const cpu = extractValue(issueBody, 'CPU');
+            const ram = extractValue(issueBody, 'RAM');
+            const gpu = extractValue(issueBody, 'GPU');
+            const timestamp = extractValue(issueBody, 'Timestamp');
+            
+            // Create CSV line
+            const newLine = [
+              dataset,
+              model,
+              'evaluation',
+              `${accuracy}%`,
+              '250', // Hardcoded as per example
+              `${avgLatency}ms`,
+              tokensPerSecond,
+              `${memoryUsage}MB`,
+              browser,
+              os,
+              cpu,
+              ram,
+              gpu,
+              timestamp
+            ].join(',');
+            
+            // Read existing CSV file
+            const csvPath = 'public/main.csv';
+            const existingContent = fs.readFileSync(csvPath, 'utf8');
+            const header = existingContent.split('\n')[0];
+            
+            // Combine existing content with new line
+            const newContent = [
+              header,
+              ...existingContent.split('\n').slice(1),
+              newLine
+            ].join('\n');
+            
+            // Create new branch
+            const branchName = `update-csv-${context.issue.number}`;
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/heads/${branchName}`,
+              sha: context.sha
+            });
+            
+            // Create or update file in the new branch
+            await github.rest.repos.createOrUpdateFileContents({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: csvPath,
+              message: `Update main.csv from issue #${context.issue.number}`,
+              content: Buffer.from(newContent).toString('base64'),
+              branch: branchName
+            });
+            
+            // Create PR
+            await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Update main.csv from issue #${context.issue.number}`,
+              body: `This PR updates main.csv with data from issue #${context.issue.number}`,
+              head: branchName,
+              base: 'main'
+            });
+
+      - name: Comment on issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Created PR to update main.csv with the provided data.'
+            });
+
+      - name: Handle errors
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Failed to create PR. Please check the action logs for details.'
+            }); 
