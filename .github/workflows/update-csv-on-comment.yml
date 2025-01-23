@@ -117,7 +117,7 @@ jobs:
             });
             
             // Create PR
-            await github.rest.pulls.create({
+            const pr = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `Update main.csv from issue #${context.issue.number}`,
@@ -135,7 +135,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: 'Created PR to update main.csv with the provided data.'
+              body: `Created PR to update main.csv with the provided data.\nPR: #${pr.data.number}`
             });
 
       - name: Handle errors
