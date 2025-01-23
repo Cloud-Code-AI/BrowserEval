@@ -1,2 +1,3 @@
 Dataset,Model,Evaluation Type,Accuracy,Total Questions,Average Latency,Tokens/Second,Memory Usage,Browser,OS,CPU,RAM,GPU,Timestamp
 smalleval/mmlu-nano:mmlu_high_school_mathematics.jsonl,smollm2-360m-instruct,evaluation,24.0%,250,0.00ms,0.00,265.22MB,chrome 131,MacIntel,10 cores,8GB,Not Available,2025-01-23 05:38:11
+smalleval/mmlu-nano:mmlu_high_school_mathematics.jsonl,smollm2-360m-instruct,evaluation,24.0%,250,0.00ms,0.00,265.22MB,chrome 131,MacIntel,10 cores,8GB,Not Available,2025-01-23 05:38:11
