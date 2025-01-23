@@ -22,7 +22,7 @@ export function TerminalOutput({ logs }: TerminalOutputProps) {
   return (
     <div
       ref={terminalRef}
-      className="bg-terminal-background border border-terminal-border rounded-lg p-4 h-[300px] overflow-y-auto font-mono text-sm"
+      className="bg-terminal-background border border-terminal-border rounded-lg p-4 h-[600px] overflow-y-auto font-mono text-sm"
     >
       {logs.map((log, index) => (
         <div

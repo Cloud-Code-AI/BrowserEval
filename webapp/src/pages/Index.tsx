@@ -16,6 +16,7 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [selectedDataset, setSelectedDataset] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [logs, setLogs] = useState<Array<{ message: string; type: "info" | "error" | "success"; timestamp: string }>>([]);
   const [metrics, setMetrics] = useState({
     latency: 0,
@@ -28,11 +29,13 @@ const Index = () => {
 
   const handleModelSelect = (modelId: string) => {
     setSelectedModel(modelId);
+    setHasStarted(false);
     addLog(`Selected model: ${modelId}`, "info");
   };
 
   const handleDatasetSelect = (datasetId: string) => {
     setSelectedDataset(datasetId);
+    setHasStarted(false);
     addLog(`Selected dataset: ${datasetId}`, "info");
   };
 
@@ -52,7 +55,9 @@ const Index = () => {
     }
 
     setIsRunning(true);
+    setHasStarted(true);
     // addLog("Starting evaluation...", "info");
+    setLogs([]);
     console.log(selectedModel);
     const model = new BrowserAIModel(
       { model: selectedModel },
@@ -84,6 +89,95 @@ const Index = () => {
       model.cleanup();
     }
   };
+
+  // Get system information
+  const getSystemInfo = async () => {
+    const ua = navigator.userAgent;
+    const browserInfo = {
+      chrome: ua.includes('Chrome'),
+      firefox: ua.includes('Firefox'),
+      safari: ua.includes('Safari'),
+      edge: ua.includes('Edg'),
+    };
+
+    const browser = Object.entries(browserInfo).find(([_, has]) => has)?.[0] || 'unknown';
+
+    // Update RAM info to handle undefined case better
+    const ramInfo = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+      ? `${(navigator as Navigator & { deviceMemory?: number }).deviceMemory}GB`
+      : 'Not Available';
+    let gpuInfo = 'Not Available';
+    try {
+      // Try WebGPU first
+      if ('gpu' in navigator) {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (adapter) {
+          gpuInfo = await adapter.requestAdapterInfo().name;
+        }
+      }
+      // Fall back to WebGL if WebGPU is not available
+      else {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
+        if (gl) {
+          const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+          if (debugInfo) {
+            gpuInfo = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to get GPU info:', e);
+    }
+    return {
+      os: navigator.platform,
+      browser: `${browser} ${navigator.appVersion.match(/(?:Chrome|Firefox|Safari|Edge)\/(\d+)/)?.[1] || ''}`,
+      ram: ramInfo,
+      cpu: navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} cores` : 'unknown',
+      gpu: gpuInfo,
+    };
+  };
+
+  const createGitHubIssue = async () => {
+    const systemInfo = await getSystemInfo();
+
+    const timestamp = new Date().toISOString().replace('T', ' ').split('.')[0];
+    const accuracy = (metrics.accuracy * 100).toFixed(1);
+
+    // Safely access metrics with defaults
+    const latency = metrics?.latency ?? 0;
+    const tokensPerSec = metrics?.tokensProcessed / metrics?.evalTime ?? 0;
+    const memUsage = metrics?.memoryUsage ?? 0;
+
+    const issueTitle = `[Eval Results] ${selectedModel} on ${selectedDataset} - ${accuracy}% Accuracy`;
+    const issueBody = `## Evaluation Results
+
+### Metadata
+- **Dataset**: ${selectedDataset}
+- **Model**: ${selectedModel}
+
+### Performance Metrics
+- **Accuracy**: ${accuracy}%
+- **Average Latency**: ${latency.toFixed(2)}ms
+- **Tokens/Second**: ${tokensPerSec.toFixed(2)}
+- **Memory Usage**: ${(memUsage / (1024 * 1024)).toFixed(2)}MB
+
+### System Information
+- **Browser**: ${systemInfo.browser}
+- **OS**: ${systemInfo.os}
+- **CPU**: ${systemInfo.cpu}
+- **RAM**: ${systemInfo.ram}
+- **GPU**: ${systemInfo.gpu || 'Not Available'}
+- **Timestamp**: ${timestamp}
+
+`;
+
+    const encodedTitle = encodeURIComponent(issueTitle);
+    const encodedBody = encodeURIComponent(issueBody);
+    const issueUrl = `https://github.com/Cloud-Code-AI/smalleval/issues/new?title=${encodedTitle}&body=${encodedBody}`;
+
+    window.open(issueUrl, '_blank');
+  }
 
   return (
     <div className="min-h-screen p-8 bg-terminal-background">
@@ -143,6 +237,15 @@ const Index = () => {
               >
                 Logs View
               </Button>
+              {isRunning == false && hasStarted && <button
+                onClick={createGitHubIssue}
+                className="px-4 py-2 bg-[#2da44e] text-white rounded hover:bg-[#2da44e]/90 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.137 20.167 22 16.42 22 12c0-5.523-4.477-10-10-10z" />
+                </svg>
+                Create GitHub Issue
+              </button>}
             </div>
 
             {outputView === 'console' ? (
@@ -150,7 +253,7 @@ const Index = () => {
             ) : (
               <div className="bg-terminal-foreground rounded-lg p-4">
                 {metrics?.logs ? (
-                  <EvaluationLogsTable logs={metrics.logs} />
+                  <EvaluationLogsTable logs={metrics.logs} metadata={{ dataset: selectedDataset, model: selectedModel, evaluationType: 'evaluation' }} metrics={metrics} />
                 ) : (
                   <p className="text-terminal-muted">No evaluation logs available. Run an evaluation to see results.</p>
                 )}

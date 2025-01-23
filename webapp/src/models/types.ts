@@ -10,6 +10,8 @@ export interface EvaluationLog {
     predictedAnswer: string;
     expectedAnswer: string;
     isCorrect: boolean;
+    latency: number;      // in milliseconds
+    tokenCount: number;   // number of tokens processed
 }
 
 export interface EvaluationMetrics {
