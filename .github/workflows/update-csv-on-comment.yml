@@ -8,7 +8,7 @@ jobs:
   update-csv:
     if: |
       contains(github.event.comment.body, 'insert') && 
-      github.event.comment.author_association == 'COLLABORATOR'
+      github.event.comment.user.login == 'sauravpanda'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,7 +19,7 @@ jobs:
       - name: Debug event information
         run: |
           echo "Comment body: ${{ github.event.comment.body }}"
-          echo "Author association: ${{ github.event.comment.author_association }}"
+          echo "Comment author: ${{ github.event.comment.user.login }}"
 
       - name: Checkout repository
         uses: actions/checkout@v4
