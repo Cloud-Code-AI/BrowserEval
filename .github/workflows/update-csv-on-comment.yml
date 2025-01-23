@@ -90,7 +90,7 @@ jobs:
               ]
 
               # Read and update CSV
-              csv_path = 'public/main.csv'
+              csv_path = 'webapp/public/main.csv'
               with open(csv_path, 'r') as f:
                   content = f.readlines()
                   header = content[0]
