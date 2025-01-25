@@ -33,19 +33,28 @@ interface EvaluationResults {
 }
 
 export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, metadata, metrics }) => {
-  const parsePrompt = (prompt: string) => {
-    const questionMatch = prompt.match(/Question: (.*?)\nChoices:/);
-    const choicesMatch = prompt.match(/Choices:\nA\) (.*?)\nB\) (.*?)\nC\) (.*?)\nD\) (.*?)\nAnswer:/);
+  const parsePrompt = (log: EvaluationLog) => {
+    if (log.type === 'math') {
+      // For math questions, use the question directly
+      return {
+        question: log.question || '',
+        choices: []
+      };
+    } else {
+      // For multiple choice questions, parse from prompt
+      const questionMatch = log.prompt.match(/Question: (.*?)\nChoices:/);
+      const choicesMatch = log.prompt.match(/Choices:\nA\) (.*?)\nB\) (.*?)\nC\) (.*?)\nD\) (.*?)\nAnswer:/);
 
-    return {
-      question: questionMatch ? questionMatch[1] : '',
-      choices: choicesMatch ? [
-        choicesMatch[1],
-        choicesMatch[2],
-        choicesMatch[3],
-        choicesMatch[4]
-      ] : []
-    };
+      return {
+        question: questionMatch ? questionMatch[1] : log.question || '',
+        choices: choicesMatch ? [
+          choicesMatch[1],
+          choicesMatch[2],
+          choicesMatch[3],
+          choicesMatch[4]
+        ] : []
+      };
+    }
   };
 
   // Save results to JSON
@@ -74,7 +83,6 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
     URL.revokeObjectURL(url);
   };
 
-
   return (
     <div className="space-y-4">
       <div className="flex justify-end mb-4 gap-4">
@@ -97,20 +105,21 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
           </thead>
           <tbody>
             {logs.map((log, index) => {
-              const { question, choices } = parsePrompt(log.prompt);
-              console.log(question, choices);
+              const { question, choices } = parsePrompt(log);
               return (
                 <tr key={index} className="border-b border-terminal-border/50">
                   <td className="px-4 py-2 text-black">
                     <div>
                       <p className="font-medium mb-2">{question}</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-black">
-                        {choices.map((choice, idx) => (
-                          <div key={idx}>
-                            {String.fromCharCode(65 + idx)}) {choice}
-                          </div>
-                        ))}
-                      </div>
+                      {choices.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2 text-sm text-black">
+                          {choices.map((choice, idx) => (
+                            <div key={idx}>
+                              {String.fromCharCode(65 + idx)}) {choice}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-2 text-center text-black">
@@ -136,4 +145,4 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
       </div>
     </div>
   );
-}; 
+};

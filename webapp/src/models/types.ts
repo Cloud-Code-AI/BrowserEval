@@ -8,10 +8,13 @@ export interface ModelInfo {
 export interface EvaluationLog {
     prompt: string;
     predictedAnswer: string;
+    choices?: string[];
     expectedAnswer: string;
     isCorrect: boolean;
     latency: number;      // in milliseconds
     tokenCount: number;   // number of tokens processed
+    type?: 'math' | 'multiple-choice';  // Make it optional with possible values
+    question?: string;    // Optional question field
 }
 
 export interface EvaluationMetrics {
