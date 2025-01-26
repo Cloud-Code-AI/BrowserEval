@@ -33,19 +33,21 @@ interface EvaluationResults {
 }
 
 export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, metadata, metrics }) => {
-  const parsePrompt = (prompt: string) => {
-    const questionMatch = prompt.match(/Question: (.*?)\nChoices:/);
-    const choicesMatch = prompt.match(/Choices:\nA\) (.*?)\nB\) (.*?)\nC\) (.*?)\nD\) (.*?)\nAnswer:/);
-
-    return {
-      question: questionMatch ? questionMatch[1] : '',
-      choices: choicesMatch ? [
-        choicesMatch[1],
-        choicesMatch[2],
-        choicesMatch[3],
-        choicesMatch[4]
-      ] : []
-    };
+  const renderQuestion = (log: EvaluationLog) => {
+    return (
+      <div>
+        <p className="font-medium mb-2">{log.question}</p>
+        {log.type !== 'math' && log.choices && log.choices.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 text-sm text-black">
+            {log.choices.map((choice, idx) => (
+              <div key={idx}>
+                {String.fromCharCode(65 + idx)}) {choice}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Save results to JSON
@@ -62,7 +64,6 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
       logs,
     };
 
-    // Create and download JSON file
     const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -73,7 +74,6 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-
 
   return (
     <div className="space-y-4">
@@ -96,44 +96,31 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
             </tr>
           </thead>
           <tbody>
-            {logs.map((log, index) => {
-              const { question, choices } = parsePrompt(log.prompt);
-              console.log(question, choices);
-              return (
-                <tr key={index} className="border-b border-terminal-border/50">
-                  <td className="px-4 py-2 text-black">
-                    <div>
-                      <p className="font-medium mb-2">{question}</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-black">
-                        {choices.map((choice, idx) => (
-                          <div key={idx}>
-                            {String.fromCharCode(65 + idx)}) {choice}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-center text-black">
-                    {log.predictedAnswer}
-                  </td>
-                  <td className="px-4 py-2 text-center text-black">
-                    {log.expectedAnswer}
-                  </td>
-                  <td className="px-4 py-2 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      log.isCorrect 
-                        ? 'bg-green-500/20 text-green-800' 
-                        : 'bg-red-500/20 text-red-800'
-                    }`}>
-                      {log.isCorrect ? 'Correct' : 'Incorrect'}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+            {logs.map((log, index) => (
+              <tr key={index} className="border-b border-terminal-border/50">
+                <td className="px-4 py-2 text-black">
+                  {renderQuestion(log)}
+                </td>
+                <td className="px-4 py-2 text-center text-black">
+                  {log.predictedAnswer}
+                </td>
+                <td className="px-4 py-2 text-center text-black">
+                  {log.expectedAnswer}
+                </td>
+                <td className="px-4 py-2 text-center">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    log.isCorrect 
+                      ? 'bg-green-500/20 text-green-800' 
+                      : 'bg-red-500/20 text-red-800'
+                  }`}>
+                    {log.isCorrect ? 'Correct' : 'Incorrect'}
+                  </span>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
     </div>
   );
-}; 
+};

@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const datasets = [
+  // Existing MMLU datasets...
   {
     id: "smalleval/mmlu-nano:mmlu_high_school_mathematics.jsonl",
     name: "MMLU - High School Mathematics",
@@ -56,6 +57,50 @@ const datasets = [
     description: "World History Assessment Questions",
     repo_name: "smalleval/mmlu-nano",
     file_name: "mmlu_high_school_world_history.jsonl"
+  },
+  
+  // Adding your new datasets
+  {
+    id: "smalleval/mmlu-nano:mmlu_abstract_algebra.jsonl",
+    name: "MMLU - Abstract Algebra",
+    description: "Abstract Algebra Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "mmlu_abstract_algebra.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:truthfulqa_helm_None.jsonl",
+    name: "TruthfulQA HELM",
+    description: "TruthfulQA Assessment Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "truthfulqa_helm_None.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:MathQA-TR_None.jsonl",
+    name: "MathQA-TR",
+    description: "Mathematics Question Answering",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "MathQA-TR_None.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:hellaswag_thai_None.jsonl",
+    name: "HellaSwag Thai",
+    description: "HellaSwag Dataset in Thai",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "hellaswag_thai_None.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:ai2_arc_ARC-Easy.jsonl",
+    name: "AI2 ARC - Easy",
+    description: "AI2 Reasoning Challenge - Easy Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "ai2_arc_ARC-Easy.jsonl"
+  },
+  {
+    id: "smalleval/mmlu-nano:ai2_arc_ARC-Challenge.jsonl",
+    name: "AI2 ARC - Challenge",
+    description: "AI2 Reasoning Challenge - Challenge Questions",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "ai2_arc_ARC-Challenge.jsonl"
   }
 ];
 
