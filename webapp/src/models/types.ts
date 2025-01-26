@@ -13,8 +13,9 @@ export interface EvaluationLog {
     isCorrect: boolean;
     latency: number;      // in milliseconds
     tokenCount: number;   // number of tokens processed
-    type?: 'math' | 'multiple-choice';  // Make it optional with possible values
-    question?: string;    // Optional question field
+    type?: 'math' | 'multiple-choice';
+    question: string;     // Make it required since all formats have questions
+    subject?: string;     // Add subject field for categorization
 }
 
 export interface EvaluationMetrics {

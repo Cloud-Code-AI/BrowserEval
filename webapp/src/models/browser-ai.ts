@@ -1,7 +1,6 @@
 import { BrowserAI } from "@browserai/browserai";
 import { Model, ModelInfo, GenerationOptions, EvaluationMetrics, EvaluationLog } from "./types";
 
-
 export interface BrowserAIConfig {
     model: string;
 }
@@ -27,12 +26,10 @@ export class BrowserAIModel implements Model {
         };
         this.browserAI = new BrowserAI();
         this.evaluationCallbacks = callbacks;
-        console.log("Model loaded: ", this.modelConfig.model);
     }
 
     async generate(context: string, options?: GenerationOptions): Promise<string> {
         if (!this.modelLoaded) {
-            console.log("Loading model...");
             await this.browserAI.loadModel(this.modelConfig.model);
             this.modelLoaded = true;
         }
@@ -60,10 +57,9 @@ export class BrowserAIModel implements Model {
             let totalTokens = 0;
             const evaluationLogs: EvaluationLog[] = [];
             
+            const baseURL = import.meta.env.VITE_DATASET_BASE_URL; 
             const [repo_name, file_name] = dataset.split(':');
-            //const url = `https://raw.githubusercontent.com/Cloud-Code-AI/smalleval/refs/heads/main/generate_dataset/datasets/${file_name}`
-            const url = `https://raw.githubusercontent.com/manmohan659/smalleval/add-evaluation-datasets/generate_dataset/datasets/${file_name}`;
-            console.log("Fetching dataset from: ", url);
+            const url = `${baseURL}/${file_name}`;
             const response = await fetch(url);
             
             if (!response.ok) {
@@ -81,50 +77,48 @@ export class BrowserAIModel implements Model {
                 let prompt = '';
                 let choices: string[] = [];
                 let expectedAnswer = '';
-                
-                // Determine the dataset type and format accordingly
-                if (example.choices && Array.isArray(example.choices)) {
+                let type: 'math' | 'multiple-choice' = 'multiple-choice';
+
+                if (example.gold_index !== undefined && Array.isArray(example.choices)) {
                     // TruthfulQA format
                     choices = example.choices;
                     prompt = `Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nAnswer:`;
-                    expectedAnswer = String.fromCharCode(65 + example.gold_index); // Convert 0 to 'A', 1 to 'B'
+                    expectedAnswer = String.fromCharCode(65 + example.gold_index);
                 } else if (example.choices && example.choices.text) {
                     // ARC format
                     choices = example.choices.text;
                     prompt = `Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nC) ${choices[2]}\nD) ${choices[3]}\nAnswer:`;
                     expectedAnswer = example.answerKey;
-                } else if(example.answer && example.equation) {
+                } else if (example.answer && example.equation) {
                     // MathQA format
+                    type = 'math';
                     prompt = `Question: ${example.question}\nProvide only the numeric answer, no explanation:`;
                     expectedAnswer = example.answer;
+                } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
+                    // Standard multiple choice format
+                    choices = example.choices;
+                    prompt = `Question: ${example.question}\nChoices:\n` + 
+                        choices.map((choice, idx) => `${String.fromCharCode(65 + idx)}) ${choice}`).join('\n') + 
+                        '\nAnswer:';
+                    expectedAnswer = String.fromCharCode(65 + example.answer);
                 }
     
-                console.log("Processing example:", {
-                    question: example.question,
-                    choices: choices,
-                    expectedAnswer: expectedAnswer
-                });
-    
                 const response = await this.generate(prompt);
-                console.log("Model response:", response);
-    
                 let predictedAnswer = '';
                 let isCorrect = false;
     
-                if (example.answer && example.equation) {
-                    // For MathQA, extract and compare numerical answers
+                if (type === 'math') {
                     const numberMatch = response.match(/[-+]?(\d*\.\d+|\d+)/);
                     if (numberMatch) {
                         const numericResponse = parseFloat(numberMatch[0]);
                         const expectedNumeric = parseFloat(expectedAnswer);
-                        isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01; // Allow small difference
+                        isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
                         predictedAnswer = numericResponse.toString();
                     } else {
                         predictedAnswer = "No numeric answer found";
                         isCorrect = false;
                     }
                 } else {
-                    // For multiple choice questions
                     const cleanResponse = response.trim().toUpperCase();
                     if (/[ABCD]/.test(cleanResponse)) {
                         predictedAnswer = cleanResponse[0];
@@ -134,17 +128,18 @@ export class BrowserAIModel implements Model {
     
                 if (isCorrect) correctAnswers++;
                 totalTokens += prompt.length + response.length;
-    
+                
                 evaluationLogs.push({
                     prompt,
                     predictedAnswer,
                     expectedAnswer,
                     isCorrect,
-                    choices: choices,
+                    choices,
                     question: example.question,
-                    type: example.answer && example.equation ? 'math' : 'multiple-choice',
-                    latency: totalTokens * 1000 / (Date.now() - startTime),  // Calculate latency
-                    tokenCount: prompt.length + response.length  // Add token count
+                    type,
+                    subject: example.subject,
+                    latency: totalTokens * 1000 / (Date.now() - startTime),
+                    tokenCount: prompt.length + response.length
                 });
     
                 const progress = ((i + 1) / examples.length) * 100;
@@ -176,6 +171,5 @@ export class BrowserAIModel implements Model {
 
     cleanup(): void {
         this.modelLoaded = false;
-        console.log("Cleaned up Browser AI model");
     }
-} 
+}
