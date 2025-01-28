@@ -62,6 +62,17 @@ def create_dataset_subset(dataset_name: str, subset_name: str, num_samples: int 
 if __name__ == "__main__":
     # Example usage - you can create multiple subsets
     datasets_to_create = [
+        ("lighteval/truthfulqa_helm", None),
+        ("lighteval/super_glue", "boolq"),
+        ("lighteval/super_glue", "cb"),
+        ("lighteval/super_glue", "copa"),
+        ("lighteval/super_glue", "rte"),
+        ("lighteval/super_glue", "wic"),
+        ("lighteval/super_glue", "wsc"),
+        ("lighteval/hellaswag_thai", None),
+        ("lighteval/MathQA-TR", None),
+        ("lighteval/boolq_helm", None),
+        ("lighteval/numeracy", None),
         ("lighteval/mmlu", "high_school_mathematics"),
         ("lighteval/mmlu", "high_school_physics"),
         ("lighteval/mmlu", "high_school_biology"),

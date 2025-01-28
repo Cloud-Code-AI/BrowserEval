@@ -1,6 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const datasets = [
+export const datasets = [
   // Existing MMLU datasets...
   {
     id: "smalleval/mmlu-nano:mmlu_high_school_mathematics.jsonl",
