@@ -302,7 +302,7 @@ const Index = () => {
                 <Button
                 onClick={runAllEvaluations}
                 disabled={isRunning || !selectedModel}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white"
+                className="w-full bg-terminal-accent hover:bg-terminal-accent/90 text-black"
                   >
                 {isRunning ? "Running All..." : "Run ALL Evals"}
               </Button>
