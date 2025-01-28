@@ -335,7 +335,7 @@ const Index = () => {
                 variant={outputView === "console" ? "default" : "outline"}
                 onClick={() => setOutputView("console")}
                 size="sm"
-                className="text-terminal-accent text-black"
+                className="text-terminal-accent"
               >
                 Console View
               </Button>
