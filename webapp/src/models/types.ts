@@ -11,14 +11,15 @@ export interface EvaluationLog {
     choices?: string[];
     expectedAnswer: string;
     isCorrect: boolean;
-    latency: number;      // in milliseconds
-    tokenCount: number;   // number of tokens processed
+    latency: number;      
+    tokenCount: number;   
     type?: 'math' | 'multiple-choice';
-    question: string;     // Make it required since all formats have questions
-    subject?: string;     // Add subject field for categorization
+    question: string;     
+    subject?: string;     
 }
 
 export interface EvaluationMetrics {
+    metrics: any;
     latency: number;
     accuracy: number;
     tokensProcessed: number;

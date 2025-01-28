@@ -189,7 +189,6 @@ const Index = () => {
     window.open(issueUrl, "_blank");
   };
 
-  // Run all evaluations in a loop
   const runAllEvaluations = async () => {
     if (!selectedModel) {
       toast({
@@ -200,7 +199,7 @@ const Index = () => {
       return;
     }
 
-    setLogs([]);
+    setLogs([]); // Clear logs from previous runs
     setIsRunning(true);
     setHasStarted(true);
     addLog("Starting all dataset evaluations...", "info");
@@ -225,15 +224,23 @@ const Index = () => {
       for (const ds of datasets) {
         addLog(`Evaluating dataset: ${ds.name}`, "info");
         const startTime = performance.now();
-        const outcome = await model.evaluate(ds.id);
+        const outcome: EvaluationMetrics = await model.evaluate(ds.id); // Explicitly type outcome
+
         const endTime = performance.now();
 
         resultsArr.push({
           datasetId: ds.id,
           datasetName: ds.name,
-          metrics: outcome,
+          metrics: { 
+            accuracy: outcome.accuracy, 
+            evalTime: outcome.evalTime, 
+            tokensProcessed: outcome.tokensProcessed, 
+            memoryUsage: outcome.memoryUsage, 
+            latency: outcome.latency 
+          },
           evalTime: (endTime - startTime) / 1000,
         });
+
       }
 
       setAllEvalsResults(resultsArr);
@@ -328,7 +335,7 @@ const Index = () => {
                 variant={outputView === "console" ? "default" : "outline"}
                 onClick={() => setOutputView("console")}
                 size="sm"
-                className="text-terminal-accent"
+                className="text-terminal-accent text-black"
               >
                 Console View
               </Button>
