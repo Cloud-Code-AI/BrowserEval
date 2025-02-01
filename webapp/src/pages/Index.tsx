@@ -220,7 +220,7 @@ const Index = () => {
     try {
       // Preload the model once
       await (model as any).browserAI.loadModel(selectedModel);
-
+      addLog(`Model loaded`, "success");
       for (const ds of datasets) {
         addLog(`Evaluating dataset: ${ds.name}`, "info");
         const startTime = performance.now();

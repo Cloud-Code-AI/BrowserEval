@@ -57,13 +57,11 @@ export class BrowserAIModel implements Model {
             let totalTokens = 0;
             const evaluationLogs: EvaluationLog[] = [];
             
-            const baseURL = import.meta.env.VITE_DATASET_BASE_URL; 
-            const [repo_name, file_name] = dataset.split(':');
-            const url = `${baseURL}/${file_name}`;
-            const response = await fetch(url);
+            // Read from local datasets folder
+            const response = await fetch(`/datasets/${dataset.split(':')[1]}`);
             
             if (!response.ok) {
-                throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+                throw new Error(`Failed to load dataset: ${response.statusText}`);
             }
     
             const text = await response.text();
@@ -82,12 +80,12 @@ export class BrowserAIModel implements Model {
                 if (example.gold_index !== undefined && Array.isArray(example.choices)) {
                     // TruthfulQA format
                     choices = example.choices;
-                    prompt = `Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nAnswer:`;
+                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nAnswer: : Option <<Label>>`;
                     expectedAnswer = String.fromCharCode(65 + example.gold_index);
                 } else if (example.choices && example.choices.text) {
                     // ARC format
                     choices = example.choices.text;
-                    prompt = `Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nC) ${choices[2]}\nD) ${choices[3]}\nAnswer:`;
+                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nC) ${choices[2]}\nD) ${choices[3]}\nAnswer: Option <<Label>>`;
                     expectedAnswer = example.answerKey;
                 } else if (example.answer && example.equation) {
                     // MathQA format
@@ -97,16 +95,16 @@ export class BrowserAIModel implements Model {
                 } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
                     // Standard multiple choice format
                     choices = example.choices;
-                    prompt = `Question: ${example.question}\nChoices:\n` + 
+                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\n` + 
                         choices.map((choice, idx) => `${String.fromCharCode(65 + idx)}) ${choice}`).join('\n') + 
-                        '\nAnswer:';
+                        '\nAnswer: Option <<Label>>';
                     expectedAnswer = String.fromCharCode(65 + example.answer);
                 }
     
                 const response = await this.generate(prompt);
                 let predictedAnswer = '';
                 let isCorrect = false;
-    
+                console.log(prompt, response);
                 if (type === 'math') {
                     const numberMatch = response.match(/[-+]?(\d*\.\d+|\d+)/);
                     if (numberMatch) {
@@ -127,7 +125,7 @@ export class BrowserAIModel implements Model {
                 }
     
                 if (isCorrect) correctAnswers++;
-                totalTokens += prompt.length + response.length;
+                totalTokens += (prompt.length + response.length) / 4;
                 
                 evaluationLogs.push({
                     prompt,
@@ -153,7 +151,7 @@ export class BrowserAIModel implements Model {
                 };
     
                 this.evaluationCallbacks?.onProgress(progress, currentMetrics);
-                this.evaluationCallbacks?.onLog(`Processed ${i + 1}/${examples.length} examples`, "info");
+                this.evaluationCallbacks?.onLog(`Processed ${i + 1}/${examples.length} examples | Accuracy: ${currentMetrics.accuracy.toFixed(2)} | Latency: ${currentMetrics.latency.toFixed(2)}ms | Tokens Processed: ${currentMetrics.tokensProcessed} | Eval Time: ${currentMetrics.evalTime.toFixed(2)}s`, "info");
                 
                 if (i === examples.length - 1) {
                     this.evaluationCallbacks?.onLog("Evaluation complete!", "success");
