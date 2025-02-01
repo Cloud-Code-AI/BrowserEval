@@ -87,7 +87,7 @@ if __name__ == "__main__":
         create_dataset_subset(
             dataset_name=dataset_name,
             subset_name=subset_name,
-            num_samples=250,
+            num_samples=2500,
             seed=42,
             repo_name="smalleval/mmlu-nano"
         )
