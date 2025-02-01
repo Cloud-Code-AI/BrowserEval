@@ -1,12 +1,9 @@
-// /Users/manmohan/SauravBrowserAI/smalleval/webapp/src/components/AllEvalsScorecard.tsx
-
-import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { EvaluationMetrics } from "@/models/types";
 
-// This shape matches how we stored them in the runAllEvals logic
+
 interface AllEvalsResult {
   datasetId: string;
   datasetName: string;
@@ -28,11 +25,9 @@ export const AllEvalsScorecard: React.FC<AllEvalsScorecardProps> = ({
     if (!scorecardRef.current) return;
 
     try {
-      // First convert the component DOM to a canvas
       const canvas = await html2canvas(scorecardRef.current);
       const imgData = canvas.toDataURL("image/png");
 
-      // Then pipe that image into jsPDF
       const pdf = new jsPDF("p", "pt", "a4");
       const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -45,18 +40,14 @@ export const AllEvalsScorecard: React.FC<AllEvalsScorecardProps> = ({
     }
   };
 
-  // Add this function inside AllEvalsScorecard, just after exportToPdf
   const exportToCsv = () => {
     if (!results || results.length === 0) return;
 
-    // Define CSV headers
     const headers = ["Dataset", "Accuracy (%)", "Time (s)", "Tokens/s", "Memory (MB)"];
     const csvRows = [];
 
-    // Add header row
     csvRows.push(headers.join(","));
 
-    // Loop over the results and add each row to csvRows
     results.forEach(r => {
       const accuracy = (r.metrics.accuracy * 100).toFixed(1);
       const totalTime = r.metrics.evalTime.toFixed(2);
@@ -65,10 +56,8 @@ export const AllEvalsScorecard: React.FC<AllEvalsScorecardProps> = ({
       csvRows.push([r.datasetName, accuracy, totalTime, tokensPerSecond, memMB].join(","));
     });
 
-    // Combine all rows into a single CSV string
     const csvContent = csvRows.join("\n");
 
-    // Create a blob and a temporary link to trigger download
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
