@@ -3,6 +3,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const models = [
   { id: "llama-3.2-1b-instruct", name: "Llama-3.2-1b-Instruct (MLC)", size: "1B parameters" },
   { id: "smollm2-360m-instruct", name: "SmolLM2-360M-Instruct (MLC)", size: "360M parameters" },
+  { id: "qwen2.5-0.5b-instruct", name: "Qwen2.5-0.5B-Instruct(MLC)", size: "0.5B parameters" },
+  { id: "tinyllama-1.1b-chat-v0.4", name: "TinyLlama-1.1B-Chat-v0.4(MLC)", size: "1.1B parameters" },
+  { id: "phi-3.5-mini-instruct", name: "Phi-3.5-mini-instruct(MLC)", size: "3.8B parameters"},
+  { id: "smollm2-135m-instruct", name: "SmolLM2-135M-Instruct(MLC)", size: "135M parameters"},
+  { id: "qwen2.5-1.5b-instruct", name: "Qwen2.5-1.5B-Instruct(MLC)", size: "1.5B parameters"},
+  
 ];
 
 interface ModelSelectorProps {

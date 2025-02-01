@@ -45,6 +45,41 @@ export const AllEvalsScorecard: React.FC<AllEvalsScorecardProps> = ({
     }
   };
 
+  // Add this function inside AllEvalsScorecard, just after exportToPdf
+  const exportToCsv = () => {
+    if (!results || results.length === 0) return;
+
+    // Define CSV headers
+    const headers = ["Dataset", "Accuracy (%)", "Time (s)", "Tokens/s", "Memory (MB)"];
+    const csvRows = [];
+
+    // Add header row
+    csvRows.push(headers.join(","));
+
+    // Loop over the results and add each row to csvRows
+    results.forEach(r => {
+      const accuracy = (r.metrics.accuracy * 100).toFixed(1);
+      const totalTime = r.metrics.evalTime.toFixed(2);
+      const tokensPerSecond = (r.metrics.tokensProcessed / r.metrics.evalTime).toFixed(1);
+      const memMB = (r.metrics.memoryUsage / (1024 * 1024)).toFixed(2);
+      csvRows.push([r.datasetName, accuracy, totalTime, tokensPerSecond, memMB].join(","));
+    });
+
+    // Combine all rows into a single CSV string
+    const csvContent = csvRows.join("\n");
+
+    // Create a blob and a temporary link to trigger download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "all-evals-scorecard.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
       <div className="bg-white max-w-3xl w-full rounded-lg p-4 shadow-lg relative">
@@ -108,6 +143,9 @@ export const AllEvalsScorecard: React.FC<AllEvalsScorecardProps> = ({
         </div>
 
         <div className="flex justify-end space-x-2 mt-4">
+          <Button onClick={exportToCsv} className="bg-blue-600 hover:bg-blue-500">
+            Export CSV
+          </Button>
           <Button onClick={exportToPdf} className="bg-green-600 hover:bg-green-500">
             Export PDF
           </Button>
