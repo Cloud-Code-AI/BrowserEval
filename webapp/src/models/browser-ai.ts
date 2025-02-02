@@ -55,6 +55,7 @@ export class BrowserAIModel implements Model {
             const startTime = Date.now();
             let correctAnswers = 0;
             let totalTokens = 0;
+            let malformedResponses = 0;
             const evaluationLogs: EvaluationLog[] = [];
             
             // Read from local datasets folder
@@ -80,24 +81,24 @@ export class BrowserAIModel implements Model {
                 if (example.gold_index !== undefined && Array.isArray(example.choices)) {
                     // TruthfulQA format
                     choices = example.choices;
-                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nAnswer: : Option <<Label>>`;
+                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>> or <<B>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\nAnswer: `;
                     expectedAnswer = String.fromCharCode(65 + example.gold_index);
                 } else if (example.choices && example.choices.text) {
                     // ARC format
                     choices = example.choices.text;
-                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\nA) ${choices[0]}\nB) ${choices[1]}\nC) ${choices[2]}\nD) ${choices[3]}\nAnswer: Option <<Label>>`;
+                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\n<<C>> ${choices[2]}\n<<D>> ${choices[3]}\nAnswer: `;
                     expectedAnswer = example.answerKey;
                 } else if (example.answer && example.equation) {
                     // MathQA format
                     type = 'math';
-                    prompt = `Question: ${example.question}\nProvide only the numeric answer, no explanation:`;
+                    prompt = `Question: ${example.question}\nProvide the numeric answer in the format <<number>>:`;
                     expectedAnswer = example.answer;
                 } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
                     // Standard multiple choice format
                     choices = example.choices;
-                    prompt = `Please answer the following question based on the provided choices. Always start with answer. Output format: <<Label>>. Question: ${example.question}\nChoices:\n` + 
-                        choices.map((choice, idx) => `${String.fromCharCode(65 + idx)}) ${choice}`).join('\n') + 
-                        '\nAnswer: Option <<Label>>';
+                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n` + 
+                        choices.map((choice, idx) => `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n') + 
+                        '\nAnswer: ';
                     expectedAnswer = String.fromCharCode(65 + example.answer);
                 }
     
@@ -106,21 +107,26 @@ export class BrowserAIModel implements Model {
                 let isCorrect = false;
                 console.log(prompt, response);
                 if (type === 'math') {
-                    const numberMatch = response.match(/[-+]?(\d*\.\d+|\d+)/);
+                    const numberMatch = response.match(/<<([-+]?\d*\.?\d+)>>/);
                     if (numberMatch) {
-                        const numericResponse = parseFloat(numberMatch[0]);
+                        const numericResponse = parseFloat(numberMatch[1]);
                         const expectedNumeric = parseFloat(expectedAnswer);
                         isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
                         predictedAnswer = numericResponse.toString();
                     } else {
-                        predictedAnswer = "No numeric answer found";
+                        predictedAnswer = "No properly formatted answer found";
                         isCorrect = false;
+                        malformedResponses++;
                     }
                 } else {
-                    const cleanResponse = response.trim().toUpperCase();
-                    if (/[ABCD]/.test(cleanResponse)) {
-                        predictedAnswer = cleanResponse[0];
+                    const answerMatch = response.match(/<<([A-D])>>/i);
+                    if (answerMatch) {
+                        predictedAnswer = answerMatch[1].toUpperCase();
                         isCorrect = predictedAnswer === expectedAnswer;
+                    } else {
+                        predictedAnswer = "No properly formatted answer found";
+                        isCorrect = false;
+                        malformedResponses++;
                     }
                 }
     
@@ -147,11 +153,17 @@ export class BrowserAIModel implements Model {
                     tokensProcessed: totalTokens,
                     memoryUsage: performance.memory?.usedJSHeapSize || 0,
                     evalTime: (Date.now() - startTime) / 1000,
-                    logs: evaluationLogs
+                    logs: evaluationLogs,
+                    malformedResponses
                 };
     
                 this.evaluationCallbacks?.onProgress(progress, currentMetrics);
-                this.evaluationCallbacks?.onLog(`Processed ${i + 1}/${examples.length} examples | Accuracy: ${currentMetrics.accuracy.toFixed(2)} | Latency: ${currentMetrics.latency.toFixed(2)}ms | Tokens Processed: ${currentMetrics.tokensProcessed} | Eval Time: ${currentMetrics.evalTime.toFixed(2)}s`, "info");
+                this.evaluationCallbacks?.onLog(
+                    `Processed ${i + 1}/${examples.length} examples | Accuracy: ${currentMetrics.accuracy.toFixed(2)} | ` +
+                    `Latency: ${currentMetrics.latency.toFixed(2)}ms | Tokens Processed: ${currentMetrics.tokensProcessed} | ` +
+                    `Eval Time: ${currentMetrics.evalTime.toFixed(2)}s | Malformed Responses: ${malformedResponses}`, 
+                    "info"
+                );
                 
                 if (i === examples.length - 1) {
                     this.evaluationCallbacks?.onLog("Evaluation complete!", "success");

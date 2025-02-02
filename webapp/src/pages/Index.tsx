@@ -11,6 +11,7 @@ import { BrowserAIModel } from "@/models/browser-ai";
 import { EvaluationMetrics } from "@/models/types";
 import { EvaluationLogsTable } from "@/components/EvaluationLogsTable";
 import { AllEvalsScorecard } from "@/components/AllEvalsScorecard";
+import { saveMetricsToFile } from "@/utils/metrics";
 
 const Index = () => {
   const { toast } = useToast();
@@ -221,12 +222,42 @@ const Index = () => {
       // Preload the model once
       await (model as any).browserAI.loadModel(selectedModel);
       addLog(`Model loaded`, "success");
+
+      // Calculate initial estimated time
+      const avgTimePerDataset = 3 * 60; // 3 minutes per dataset as initial estimate
+      let estimatedTimeRemaining = avgTimePerDataset * datasets.length;
+      let completedDatasets = 0;
+
+      // Update metrics state with initial estimates
+      setMetrics(prev => ({
+        ...prev,
+        estimatedTimeRemaining,
+        totalDatasets: datasets.length,
+        completedDatasets: 0
+      }));
+
       for (const ds of datasets) {
         addLog(`Evaluating dataset: ${ds.name}`, "info");
         const startTime = performance.now();
         const outcome: EvaluationMetrics = await model.evaluate(ds.id); // Explicitly type outcome
 
         const endTime = performance.now();
+
+        // Save metrics for this dataset
+        saveMetricsToFile(outcome, selectedModel, ds.name);
+        
+        // Update progress and estimates
+        completedDatasets++;
+        const timeForThisDataset = (endTime - startTime) / 1000;
+        const newAvgTime = timeForThisDataset;
+        estimatedTimeRemaining = newAvgTime * (datasets.length - completedDatasets);
+        
+        // Update metrics display
+        setMetrics(prev => ({
+          ...prev,
+          estimatedTimeRemaining,
+          completedDatasets
+        }));
 
         resultsArr.push({
           datasetId: ds.id,
@@ -238,9 +269,8 @@ const Index = () => {
             memoryUsage: outcome.memoryUsage, 
             latency: outcome.latency 
           },
-          evalTime: (endTime - startTime) / 1000,
+          evalTime: timeForThisDataset,
         });
-
       }
 
       setAllEvalsResults(resultsArr);
