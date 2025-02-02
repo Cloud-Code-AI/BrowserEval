@@ -6,6 +6,10 @@ interface Metrics {
   tokensProcessed: number;
   memoryUsage: number;
   evalTime: number;
+  malformedResponses: number;
+  estimatedTimeRemaining?: number;
+  totalDatasets?: number;
+  completedDatasets?: number;
 }
 
 interface MetricsDisplayProps {
@@ -45,6 +49,28 @@ export function MetricsDisplay({ metrics }: MetricsDisplayProps) {
           {metrics.evalTime.toFixed(1)}s
         </div>
       </Card>
+      <Card className="bg-terminal-border p-4">
+        <div className="text-terminal-muted text-sm">Malformed Responses</div>
+        <div className="text-terminal-accent text-2xl font-bold">
+          {metrics.malformedResponses}
+        </div>
+      </Card>
+      {metrics.estimatedTimeRemaining !== undefined && (
+        <Card className="bg-terminal-border p-4">
+          <div className="text-terminal-muted text-sm">Estimated Time Remaining</div>
+          <div className="text-terminal-accent text-2xl font-bold">
+            {Math.ceil(metrics.estimatedTimeRemaining / 60)} minutes
+          </div>
+        </Card>
+      )}
+      {metrics.totalDatasets !== undefined && (
+        <Card className="bg-terminal-border p-4">
+          <div className="text-terminal-muted text-sm">Progress</div>
+          <div className="text-terminal-accent text-2xl font-bold">
+            {metrics.completedDatasets} / {metrics.totalDatasets} datasets
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
