@@ -74,64 +74,109 @@ export class BrowserAIModel implements Model {
             for (let i = 0; i < examples.length; i++) {
                 const example = examples[i];
                 let prompt = '';
-                let choices: string[] = [];
-                let expectedAnswer = '';
-                let type: 'math' | 'multiple-choice' = 'multiple-choice';
-
-                if (example.gold_index !== undefined && Array.isArray(example.choices)) {
-                    // TruthfulQA format
-                    choices = example.choices;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>> or <<B>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\nAnswer: `;
-                    expectedAnswer = String.fromCharCode(65 + example.gold_index);
-                } else if (example.choices && example.choices.text) {
-                    // ARC format
-                    choices = example.choices.text;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\n<<C>> ${choices[2]}\n<<D>> ${choices[3]}\nAnswer: `;
-                    expectedAnswer = example.answerKey;
-                } else if (example.answer && example.equation) {
-                    // MathQA format
-                    type = 'math';
-                    prompt = `Question: ${example.question}\nProvide the numeric answer in the format <<number>>:`;
-                    expectedAnswer = example.answer;
-                } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
-                    // Standard multiple choice format
-                    choices = example.choices;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n` + 
-                        choices.map((choice, idx) => `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n') + 
-                        '\nAnswer: ';
-                    expectedAnswer = String.fromCharCode(65 + example.answer);
-                }
-    
-                const response = await this.generate(prompt);
                 let predictedAnswer = '';
+                let choices: string[] = [];
+                let rawResponse = '';
+                let expectedAnswer = '';
                 let isCorrect = false;
-                console.log(prompt, response);
-                if (type === 'math') {
-                    const numberMatch = response.match(/<<([-+]?\d*\.?\d+)>>/);
-                    if (numberMatch) {
-                        const numericResponse = parseFloat(numberMatch[1]);
-                        const expectedNumeric = parseFloat(expectedAnswer);
-                        isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
-                        predictedAnswer = numericResponse.toString();
+                let type: 'math' | 'multiple-choice' | 'text' | 'free-form' = 'multiple-choice';
+    
+                // Handle free-form prompts separately
+                if (example.prompt) {
+                    type = 'free-form';
+                    prompt = example.prompt;
+                    
+                    // Generate response for free-form
+                    rawResponse = await this.generate(prompt);
+                    predictedAnswer = rawResponse;
+                    
+                    // Initialize as correct and check all requirements
+                    isCorrect = true;
+                    const requirements: string[] = [];
+    
+                    // Process each instruction and its corresponding kwargs
+                    if (example.instruction_id_list) {
+                        example.instruction_id_list.forEach((instruction: string, index: number) => {
+                            const kwargs = example.kwargs?.[index] || {};
+                            
+                            if (instruction === 'detectable_content:postscript' && kwargs.postscript_marker) {
+                                requirements.push(`Must include: ${kwargs.postscript_marker}`);
+                                if (!rawResponse.includes(kwargs.postscript_marker)) {
+                                    isCorrect = false;
+                                }
+                            } else if (instruction === 'change_case:english_capital') {
+                                requirements.push('Text must be in capital letters');
+                                if (rawResponse !== rawResponse.toUpperCase()) {
+                                    isCorrect = false;
+                                }
+                            } else if (instruction.startsWith('keywords:forbidden_words') && kwargs.forbidden_words) {
+                                const forbiddenWords = kwargs.forbidden_words;
+                                requirements.push(`Must not include: ${forbiddenWords.join(', ')}`);
+                                if (forbiddenWords.some(word => rawResponse.toLowerCase().includes(word.toLowerCase()))) {
+                                    isCorrect = false;
+                                }
+                            }
+                        });
+                        expectedAnswer = requirements.join(' AND ');
                     } else {
-                        predictedAnswer = "No properly formatted answer found";
-                        isCorrect = false;
-                        malformedResponses++;
+                        expectedAnswer = "Free-form response";
                     }
                 } else {
-                    const answerMatch = response.match(/<<([A-D])>>/i);
-                    if (answerMatch) {
-                        predictedAnswer = answerMatch[1].toUpperCase();
-                        isCorrect = predictedAnswer === expectedAnswer;
+                    // Handle other formats (multiple choice, math, etc.)
+                    if (example.gold_index !== undefined && Array.isArray(example.choices)) {
+                        // TruthfulQA format
+                        choices = example.choices;
+                        prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>> or <<B>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\nAnswer: `;
+                        expectedAnswer = String.fromCharCode(65 + example.gold_index);
+                    } else if (example.choices && example.choices.text) {
+                        // ARC format
+                        choices = example.choices.text;
+                        prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\n<<C>> ${choices[2]}\n<<D>> ${choices[3]}\nAnswer: `;
+                        expectedAnswer = example.answerKey;
+                    } else if (example.answer && example.equation) {
+                        // MathQA format
+                        type = 'math';
+                        prompt = `Question: ${example.question}\nProvide the numeric answer in the format <<number>>:`;
+                        expectedAnswer = example.answer;
+                    } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
+                        // Standard multiple choice format
+                        choices = example.choices;
+                        prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n` + 
+                            choices.map((choice, idx) => `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n') + 
+                            '\nAnswer: ';
+                        expectedAnswer = String.fromCharCode(65 + example.answer);
+                    }
+    
+                    // Generate response for structured formats
+                    rawResponse = await this.generate(prompt);
+                    
+                    if (type === 'math') {
+                        const numberMatch = rawResponse.match(/<<([-+]?\d*\.?\d+)>>/);
+                        if (numberMatch) {
+                            const numericResponse = parseFloat(numberMatch[1]);
+                            const expectedNumeric = parseFloat(expectedAnswer);
+                            isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
+                            predictedAnswer = numericResponse.toString();
+                        } else {
+                            predictedAnswer = "No properly formatted answer found";
+                            isCorrect = false;
+                            malformedResponses++;
+                        }
                     } else {
-                        predictedAnswer = "No properly formatted answer found";
-                        isCorrect = false;
-                        malformedResponses++;
+                        const answerMatch = rawResponse.match(/<<([A-D])>>/i);
+                        if (answerMatch) {
+                            predictedAnswer = answerMatch[1].toUpperCase();
+                            isCorrect = predictedAnswer === expectedAnswer;
+                        } else {
+                            predictedAnswer = "No properly formatted answer found";
+                            isCorrect = false;
+                            malformedResponses++;
+                        }
                     }
                 }
     
                 if (isCorrect) correctAnswers++;
-                totalTokens += (prompt.length + response.length) / 4;
+                totalTokens += (prompt.length + rawResponse.length) / 4;
                 
                 evaluationLogs.push({
                     prompt,
@@ -139,13 +184,14 @@ export class BrowserAIModel implements Model {
                     expectedAnswer,
                     isCorrect,
                     choices,
-                    question: example.question,
+                    question: prompt,  // Use prompt as question for display
                     type,
-                    subject: example.subject,
+                    subject: example.key?.toString(),
                     latency: totalTokens * 1000 / (Date.now() - startTime),
-                    tokenCount: prompt.length + response.length
+                    tokenCount: prompt.length + rawResponse.length,
+                    rawResponse // Add full response for context
                 });
-    
+                
                 const progress = ((i + 1) / examples.length) * 100;
                 const currentMetrics: EvaluationMetrics = {
                     latency: totalTokens * 1000 / (Date.now() - startTime),
