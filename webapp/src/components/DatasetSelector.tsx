@@ -101,7 +101,14 @@ export const datasets = [
     description: "AI2 Reasoning Challenge - Challenge Questions",
     repo_name: "smalleval/mmlu-nano",
     file_name: "ai2_arc_ARC-Challenge.jsonl"
-  }
+  },
+  { 
+    id: "smalleval/mmlu-nano:IFEval_subset.jsonl",
+    name: "IFEval Dataset",
+    description: "IFEval",
+    repo_name: "smalleval/mmlu-nano",
+    file_name: "IFEval_subset.jsonl"
+  },
 ];
 
 interface DatasetSelectorProps {

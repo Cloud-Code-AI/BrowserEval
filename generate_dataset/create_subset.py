@@ -81,6 +81,7 @@ if __name__ == "__main__":
         ("lighteval/mmlu", "high_school_psychology"),
         ("lighteval/mmlu", "high_school_us_history"),
         ("lighteval/mmlu", "high_school_world_history"),
+        ("google/IFEval", None)
     ]
     
     for dataset_name, subset_name in datasets_to_create:

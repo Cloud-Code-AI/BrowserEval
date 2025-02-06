@@ -1,0 +1,14 @@
+Dataset,Accuracy (%),Time (s),Tokens/s,Memory (MB)
+MMLU - High School Mathematics,29.6,60.52,1509.3,535.07
+MMLU - High School Physics,21.9,39.63,2014.3,534.95
+MMLU - High School Biology,41.6,70.45,2154.3,547.15
+MMLU - High School Chemistry,31.0,47.95,1790.2,555.62
+MMLU - High School Computer Science,29.0,27.98,2070.2,539.52
+MMLU - High School Psychology,51.2,120.07,1944.4,543.37
+MMLU - High School US History,32.4,158.57,2041.2,541.49
+MMLU - High School World History,29.1,218.26,1878.2,532.69
+MMLU - Abstract Algebra,23.0,24.63,1335.6,538.18
+TruthfulQA HELM,27.0,47.09,1733.2,542.34
+MathQA-TR,2.4,647.33,1011.9,539.27
+AI2 ARC - Easy,50.4,58.23,1630.0,547.43
+AI2 ARC - Challenge,36.4,61.83,1690.9,538.44
