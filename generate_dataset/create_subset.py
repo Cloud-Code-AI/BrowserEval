@@ -69,7 +69,7 @@ if __name__ == "__main__":
         ("lighteval/super_glue", "rte"),
         ("lighteval/super_glue", "wic"),
         ("lighteval/super_glue", "wsc"),
-        ("lighteval/hellaswag_thai", None),
+        # ("lighteval/hellaswag_thai", None),
         ("lighteval/MathQA-TR", None),
         ("lighteval/boolq_helm", None),
         ("lighteval/numeracy", None),

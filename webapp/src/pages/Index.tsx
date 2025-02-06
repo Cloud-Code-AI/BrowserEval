@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ModelSelector } from "@/components/ModelSelector";
+import { useState } from "react";
+import { ModelSelector, models } from "@/components/ModelSelector";
 import { DatasetSelector, datasets } from "@/components/DatasetSelector";
 import { TerminalOutput } from "@/components/TerminalOutput";
 import { MetricsDisplay } from "@/components/MetricsDisplay";
@@ -20,6 +20,7 @@ const Index = () => {
   const [showAllEvalsScorecard, setShowAllEvalsScorecard] = useState(false);
 
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedQuantization, setSelectedQuantization] = useState<string>("q4f16");
   const [selectedDataset, setSelectedDataset] = useState<string>("");
 
   const [isRunning, setIsRunning] = useState(false);
@@ -220,7 +221,7 @@ const Index = () => {
 
     try {
       // Preload the model once
-      await (model as any).browserAI.loadModel(selectedModel);
+      await (model as any).browserAI.loadModel(selectedModel, { quantization: selectedQuantization });
       addLog(`Model loaded`, "success");
 
       // Calculate initial estimated time
@@ -284,6 +285,71 @@ const Index = () => {
     }
   };
 
+  const runAllEvaluationsWithAllModels = async () => {
+    setLogs([]); // Clear logs from previous runs
+    setIsRunning(true);
+    setHasStarted(true);
+    addLog("Starting evaluations for all models and datasets...", "info");
+
+    const all_models = models.map(model => model.id); // Add your model list here
+    const resultsArr: any[] = [];
+
+    try {
+      for (const modelId of all_models) {
+        addLog(`Starting evaluations with model: ${modelId}`, "info");
+        
+        const model = new BrowserAIModel(
+          { model: modelId },
+          {
+            onProgress: () => {},
+            onComplete: () => {},
+            onLog: (message: string, type: "info" | "error" | "success") => {
+              addLog(message, type);
+            },
+          }
+        );
+
+        // Preload the model
+        await (model as any).browserAI.loadModel(modelId);
+        addLog(`Model ${modelId} loaded`, "success");
+
+        for (const ds of datasets) {
+          addLog(`Evaluating dataset: ${ds.name} with model: ${modelId}`, "info");
+          const startTime = performance.now();
+          const outcome: EvaluationMetrics = await model.evaluate(ds.id);
+          const endTime = performance.now();
+          
+          // Save metrics for this dataset
+          saveMetricsToFile(outcome, modelId, ds.name);
+
+          resultsArr.push({
+            modelId,
+            datasetId: ds.id,
+            datasetName: ds.name,
+            metrics: { 
+              accuracy: outcome.accuracy, 
+              evalTime: outcome.evalTime, 
+              tokensProcessed: outcome.tokensProcessed, 
+              memoryUsage: outcome.memoryUsage, 
+              latency: outcome.latency 
+            },
+            evalTime: (endTime - startTime) / 1000,
+          });
+        }
+
+        model.cleanup();
+      }
+
+      setAllEvalsResults(resultsArr);
+      setShowAllEvalsScorecard(true);
+      addLog("All model evaluations complete!", "success");
+    } catch (err: any) {
+      addLog(`Error in all-models-evals: ${err.message}`, "error");
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen p-8 bg-terminal-background">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -322,7 +388,10 @@ const Index = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Left panel with model/dataset selection and buttons */}
               <div className="space-y-4">
-                <ModelSelector onModelSelect={handleModelSelect} />
+                <ModelSelector 
+                  onModelSelect={setSelectedModel}
+                  onQuantizationSelect={setSelectedQuantization}
+                />
                 <DatasetSelector onDatasetSelect={handleDatasetSelect} />
 
                 {/* Single dataset evaluation */}
@@ -342,6 +411,14 @@ const Index = () => {
                 className="w-full bg-terminal-accent hover:bg-terminal-accent/90 text-black"
                   >
                 {isRunning ? "Running All..." : "Run ALL Evals"}
+              </Button>
+
+              <Button
+                onClick={runAllEvaluationsWithAllModels}
+                disabled={isRunning}
+                className="w-full bg-terminal-accent hover:bg-terminal-accent/90 text-black"
+              >
+                {isRunning ? "Running All Models..." : "Run ALL Models & Datasets"}
               </Button>
               </div>
 
