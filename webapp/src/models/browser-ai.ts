@@ -58,7 +58,6 @@ export class BrowserAIModel implements Model {
             let malformedResponses = 0;
             const evaluationLogs: EvaluationLog[] = [];
             
-            // Read from local datasets folder
             const response = await fetch(`/datasets/${dataset.split(':')[1]}`);
             
             if (!response.ok) {
@@ -73,102 +72,84 @@ export class BrowserAIModel implements Model {
             
             for (let i = 0; i < examples.length; i++) {
                 const example = examples[i];
-                let prompt = '';
-                let choices: string[] = [];
-                let expectedAnswer = '';
                 let type: 'math' | 'multiple-choice' = 'multiple-choice';
+                let choices: string[] = [];
 
-                if (example.gold_index !== undefined && Array.isArray(example.choices)) {
-                    // TruthfulQA format
-                    choices = example.choices;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>> or <<B>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\nAnswer: `;
-                    expectedAnswer = String.fromCharCode(65 + example.gold_index);
-                } else if (example.choices && example.choices.text) {
-                    // ARC format
-                    choices = example.choices.text;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n<<A>> ${choices[0]}\n<<B>> ${choices[1]}\n<<C>> ${choices[2]}\n<<D>> ${choices[3]}\nAnswer: `;
-                    expectedAnswer = example.answerKey;
-                } else if (example.answer && example.equation) {
-                    // MathQA format
-                    type = 'math';
-                    prompt = `Question: ${example.question}\nProvide the numeric answer in the format <<number>>:`;
-                    expectedAnswer = example.answer;
-                } else if (Array.isArray(example.choices) && typeof example.answer === 'number') {
-                    // Standard multiple choice format
-                    choices = example.choices;
-                    prompt = `Please answer the following question by selecting one choice. Your response must be in the format <<A>>, <<B>>, <<C>>, or <<D>>.\nQuestion: ${example.question}\nChoices:\n` + 
-                        choices.map((choice, idx) => `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n') + 
-                        '\nAnswer: ';
-                    expectedAnswer = String.fromCharCode(65 + example.answer);
-                }
-    
-                const response = await this.generate(prompt);
-                let predictedAnswer = '';
-                let isCorrect = false;
-                console.log(prompt, response);
-                if (type === 'math') {
-                    const numberMatch = response.match(/<<([-+]?\d*\.?\d+)>>/);
-                    if (numberMatch) {
-                        const numericResponse = parseFloat(numberMatch[1]);
-                        const expectedNumeric = parseFloat(expectedAnswer);
-                        isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
-                        predictedAnswer = numericResponse.toString();
+                try {
+                    const { prompt, expectedAnswer } = generatePrompt(example);
+                    type = example.answer && example.equation ? 'math' : 'multiple-choice';
+                    choices = example.choices?.text || example.choices || [];
+
+                    const response = await this.generate(prompt);
+                    let predictedAnswer = '';
+                    let isCorrect = false;
+
+                    if (type === 'math') {
+                        const numberMatch = response.match(/<<([-+]?\d*\.?\d+)>>/);
+                        if (numberMatch) {
+                            const numericResponse = parseFloat(numberMatch[1]);
+                            const expectedNumeric = parseFloat(expectedAnswer);
+                            isCorrect = Math.abs(numericResponse - expectedNumeric) < 0.01;
+                            predictedAnswer = numericResponse.toString();
+                        } else {
+                            predictedAnswer = "No properly formatted answer found";
+                            malformedResponses++;
+                        }
                     } else {
-                        predictedAnswer = "No properly formatted answer found";
-                        isCorrect = false;
-                        malformedResponses++;
+                        const answerMatch = response.match(/<<([A-D])>>/i);
+                        if (answerMatch) {
+                            predictedAnswer = answerMatch[1].toUpperCase();
+                            isCorrect = predictedAnswer === expectedAnswer;
+                        } else {
+                            predictedAnswer = "No properly formatted answer found";
+                            malformedResponses++;
+                        }
                     }
-                } else {
-                    const answerMatch = response.match(/<<([A-D])>>/i);
-                    if (answerMatch) {
-                        predictedAnswer = answerMatch[1].toUpperCase();
-                        isCorrect = predictedAnswer === expectedAnswer;
-                    } else {
-                        predictedAnswer = "No properly formatted answer found";
-                        isCorrect = false;
-                        malformedResponses++;
+
+                    if (isCorrect) correctAnswers++;
+                    totalTokens += (prompt.length + response.length) / 4;
+                    
+                    evaluationLogs.push({
+                        prompt,
+                        predictedAnswer,
+                        expectedAnswer,
+                        isCorrect,
+                        choices,
+                        question: example.question,
+                        type,
+                        subject: example.subject,
+                        latency: totalTokens * 1000 / (Date.now() - startTime),
+                        tokenCount: prompt.length + response.length
+                    });
+
+                    const progress = ((i + 1) / examples.length) * 100;
+                    const currentMetrics: EvaluationMetrics = {
+                        latency: totalTokens * 1000 / (Date.now() - startTime),
+                        accuracy: correctAnswers / (i + 1),
+                        tokensProcessed: totalTokens,
+                        memoryUsage: performance.memory?.usedJSHeapSize || 0,
+                        evalTime: (Date.now() - startTime) / 1000,
+                        logs: evaluationLogs,
+                        malformedResponses
+                    };
+
+                    this.evaluationCallbacks?.onProgress(progress, currentMetrics);
+                    this.evaluationCallbacks?.onLog(
+                        `Processed ${i + 1}/${examples.length} examples | Accuracy: ${currentMetrics.accuracy.toFixed(2)} | ` +
+                        `Latency: ${currentMetrics.latency.toFixed(2)}ms | Tokens Processed: ${currentMetrics.tokensProcessed} | ` +
+                        `Eval Time: ${currentMetrics.evalTime.toFixed(2)}s | Malformed Responses: ${malformedResponses}`, 
+                        "info"
+                    );
+                    
+                    if (i === examples.length - 1) {
+                        this.evaluationCallbacks?.onLog("Evaluation complete!", "success");
+                        this.evaluationCallbacks?.onComplete(currentMetrics);
+                        return currentMetrics;
                     }
-                }
-    
-                if (isCorrect) correctAnswers++;
-                totalTokens += (prompt.length + response.length) / 4;
-                
-                evaluationLogs.push({
-                    prompt,
-                    predictedAnswer,
-                    expectedAnswer,
-                    isCorrect,
-                    choices,
-                    question: example.question,
-                    type,
-                    subject: example.subject,
-                    latency: totalTokens * 1000 / (Date.now() - startTime),
-                    tokenCount: prompt.length + response.length
-                });
-    
-                const progress = ((i + 1) / examples.length) * 100;
-                const currentMetrics: EvaluationMetrics = {
-                    latency: totalTokens * 1000 / (Date.now() - startTime),
-                    accuracy: correctAnswers / (i + 1),
-                    tokensProcessed: totalTokens,
-                    memoryUsage: performance.memory?.usedJSHeapSize || 0,
-                    evalTime: (Date.now() - startTime) / 1000,
-                    logs: evaluationLogs,
-                    malformedResponses
-                };
-    
-                this.evaluationCallbacks?.onProgress(progress, currentMetrics);
-                this.evaluationCallbacks?.onLog(
-                    `Processed ${i + 1}/${examples.length} examples | Accuracy: ${currentMetrics.accuracy.toFixed(2)} | ` +
-                    `Latency: ${currentMetrics.latency.toFixed(2)}ms | Tokens Processed: ${currentMetrics.tokensProcessed} | ` +
-                    `Eval Time: ${currentMetrics.evalTime.toFixed(2)}s | Malformed Responses: ${malformedResponses}`, 
-                    "info"
-                );
-                
-                if (i === examples.length - 1) {
-                    this.evaluationCallbacks?.onLog("Evaluation complete!", "success");
-                    this.evaluationCallbacks?.onComplete(currentMetrics);
-                    return currentMetrics;
+                } catch (error) {
+                    console.error(`Error processing example ${i}:`, error);
+                    malformedResponses++;
+                    continue;
                 }
             }
     
@@ -183,3 +164,66 @@ export class BrowserAIModel implements Model {
         this.modelLoaded = false;
     }
 }
+
+// Helper function to format choices
+const formatChoices = (choices: string[], format: string): string => {
+    return choices.map((choice, idx) => 
+        `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n');
+};
+
+// Helper function to create consistent prompt structure
+const createPrompt = (question: string, choices: string[], type: string, format: string = 'letter'): string => {
+    const basePrompt = `Question: ${question.trim()}\n`;
+    
+    if (type === 'math') {
+        return `${basePrompt}Provide your answer as a number in this format: <<number>>`;
+    }
+    
+    const choiceCount = choices.length;
+    const validFormats = Array.from({length: choiceCount}, (_, i) => 
+        `<<${String.fromCharCode(65 + i)}>>`).join(', ');
+        
+    return `${basePrompt}Select the best answer. Respond ONLY with one of these formats: ${validFormats}
+
+Choices:
+${formatChoices(choices, format)}
+
+Your answer: `;
+};
+
+// Main prompt generation logic
+const generatePrompt = (example: any): { prompt: string; expectedAnswer: string } => {
+    if (example.gold_index !== undefined && Array.isArray(example.choices)) {
+        // TruthfulQA format
+        return {
+            prompt: createPrompt(example.question, example.choices, 'truthfulqa'),
+            expectedAnswer: String.fromCharCode(65 + example.gold_index)
+        };
+    }
+    
+    if (example.choices?.text) {
+        // ARC format
+        return {
+            prompt: createPrompt(example.question, example.choices.text, 'arc'),
+            expectedAnswer: example.answerKey
+        };
+    }
+    
+    if (example.answer && example.equation) {
+        // MathQA format
+        return {
+            prompt: createPrompt(example.question, [], 'math'),
+            expectedAnswer: example.answer
+        };
+    }
+    
+    if (Array.isArray(example.choices) && typeof example.answer === 'number') {
+        // Standard multiple choice
+        return {
+            prompt: createPrompt(example.question, example.choices, 'standard'),
+            expectedAnswer: String.fromCharCode(65 + example.answer)
+        };
+    }
+    
+    throw new Error('Unsupported example format');
+};
