@@ -81,13 +81,13 @@ export const datasets = [
     repo_name: "smalleval/mmlu-nano",
     file_name: "MathQA-TR_None.jsonl"
   },
-  {
-    id: "smalleval/mmlu-nano:hellaswag_thai_None.jsonl",
-    name: "HellaSwag Thai",
-    description: "HellaSwag Dataset in Thai",
-    repo_name: "smalleval/mmlu-nano",
-    file_name: "hellaswag_thai_None.jsonl"
-  },
+  // {
+  //   id: "smalleval/mmlu-nano:hellaswag_thai_None.jsonl",
+  //   name: "HellaSwag Thai",
+  //   description: "HellaSwag Dataset in Thai",
+  //   repo_name: "smalleval/mmlu-nano",
+  //   file_name: "hellaswag_thai_None.jsonl"
+  // },
   {
     id: "smalleval/mmlu-nano:ai2_arc_ARC-Easy.jsonl",
     name: "AI2 ARC - Easy",

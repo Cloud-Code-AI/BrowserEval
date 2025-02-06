@@ -58,7 +58,6 @@ export class BrowserAIModel implements Model {
             let malformedResponses = 0;
             const evaluationLogs: EvaluationLog[] = [];
             
-            // Read from local datasets folder
             const response = await fetch(`/datasets/${dataset.split(':')[1]}`);
             
             if (!response.ok) {
@@ -229,3 +228,66 @@ export class BrowserAIModel implements Model {
         this.modelLoaded = false;
     }
 }
+
+// Helper function to format choices
+const formatChoices = (choices: string[], format: string): string => {
+    return choices.map((choice, idx) => 
+        `<<${String.fromCharCode(65 + idx)}>> ${choice}`).join('\n');
+};
+
+// Helper function to create consistent prompt structure
+const createPrompt = (question: string, choices: string[], type: string, format: string = 'letter'): string => {
+    const basePrompt = `Question: ${question.trim()}\n`;
+    
+    if (type === 'math') {
+        return `${basePrompt}Provide your answer as a number in this format: <<number>>`;
+    }
+    
+    const choiceCount = choices.length;
+    const validFormats = Array.from({length: choiceCount}, (_, i) => 
+        `<<${String.fromCharCode(65 + i)}>>`).join(', ');
+        
+    return `${basePrompt}Select the best answer. Respond ONLY with one of these formats: ${validFormats}
+
+Choices:
+${formatChoices(choices, format)}
+
+Your answer: `;
+};
+
+// Main prompt generation logic
+const generatePrompt = (example: any): { prompt: string; expectedAnswer: string } => {
+    if (example.gold_index !== undefined && Array.isArray(example.choices)) {
+        // TruthfulQA format
+        return {
+            prompt: createPrompt(example.question, example.choices, 'truthfulqa'),
+            expectedAnswer: String.fromCharCode(65 + example.gold_index)
+        };
+    }
+    
+    if (example.choices?.text) {
+        // ARC format
+        return {
+            prompt: createPrompt(example.question, example.choices.text, 'arc'),
+            expectedAnswer: example.answerKey
+        };
+    }
+    
+    if (example.answer && example.equation) {
+        // MathQA format
+        return {
+            prompt: createPrompt(example.question, [], 'math'),
+            expectedAnswer: example.answer
+        };
+    }
+    
+    if (Array.isArray(example.choices) && typeof example.answer === 'number') {
+        // Standard multiple choice
+        return {
+            prompt: createPrompt(example.question, example.choices, 'standard'),
+            expectedAnswer: String.fromCharCode(65 + example.answer)
+        };
+    }
+    
+    throw new Error('Unsupported example format');
+};
