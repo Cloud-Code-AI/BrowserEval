@@ -28,6 +28,7 @@ interface EvaluationResults {
     dataset: string;
     model: string;
     evaluationType: string;
+    quantization: string;
   };
   logs: EvaluationLog[];
 }
@@ -60,7 +61,10 @@ export const EvaluationLogsTable: React.FC<EvaluationLogsTableProps> = ({ logs, 
         cpu: navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} cores` : 'unknown',
       },
       metrics: metrics,
-      metadata,
+      metadata: {
+        ...metadata,
+        quantization: metadata.model.split(':')[1] || 'unknown' // Extract quantization from model ID
+      },
       logs,
     };
 
